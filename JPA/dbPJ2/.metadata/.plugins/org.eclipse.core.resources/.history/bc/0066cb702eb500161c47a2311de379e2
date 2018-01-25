@@ -1,0 +1,136 @@
+package cs4347.hibernateProject.ecomm.services.impl;
+
+import java.sql.SQLException;
+import java.util.List;
+
+import javax.persistence.EntityManager;
+import javax.persistence.TypedQuery;
+
+
+
+import cs4347.hibernateProject.ecomm.entity.Customer;
+import cs4347.hibernateProject.ecomm.entity.Product;
+import cs4347.hibernateProject.ecomm.entity.Purchase;
+import cs4347.hibernateProject.ecomm.services.PurchasePersistenceService;
+import cs4347.hibernateProject.ecomm.services.PurchaseSummary;
+import cs4347.hibernateProject.ecomm.util.DAOException;
+
+
+public class PurchasePersistenceServiceImpl implements PurchasePersistenceService
+{
+	private EntityManager eManager;
+
+	public PurchasePersistenceServiceImpl(EntityManager eManager){
+		this.eManager = eManager;
+	}
+
+	@Override
+	public Purchase create(Purchase purchase) throws SQLException, DAOException{
+		if(purchase.getId() == null)
+			System.out.println("Before persist the purchase.id is null");
+		else
+			System.out.println("Before persist the purchase.id = " + purchase.getId());
+		
+		
+		if(purchase.getId() != null)
+			throw new DAOException("Error, can't create Purchase will non-null ID");
+		
+		eManager.getTransaction().begin();
+		eManager.persist(purchase);
+		System.out.println("After persist purchase.id = " + purchase.getId());
+		
+		
+		eManager.getTransaction().commit();
+		return purchase;	
+	}
+
+	@Override
+	public Purchase retrieve(Long id) throws SQLException, DAOException{
+		if(id == null)
+			throw new DAOException("Error, can't create Purchase will null ID");
+		
+		eManager.getTransaction().begin();
+		Purchase purchase = eManager.find(Purchase.class, id);
+		eManager.getTransaction().commit();
+		
+		return purchase;
+	}
+
+	@Override
+	public Purchase update(Purchase purchase) throws SQLException, DAOException{
+		if(purchase.getId() == null)
+			throw new DAOException("Error, can't update Purchase with null ID");
+		
+		Purchase result = retrieve(purchase.getId());
+		result = purchase;
+		
+		return purchase;
+	}
+
+	@Override
+	public void delete(Long id) throws SQLException, DAOException{
+		if(id == null)
+			throw new DAOException("Error: Trying to delete Purchase with null ID");
+		
+		eManager.getTransaction().begin();
+		Purchase purchase = eManager.find(Purchase.class, id);
+		eManager.remove(purchase);
+		eManager.getTransaction().commit();
+	}
+
+	@Override
+	public List<Purchase> retrieveForCustomerID(Long customerID) throws SQLException, DAOException{
+		if(customerID == null)
+			throw new DAOException("Error, can't retrieve Purchase with null customerID");
+		eManager.getTransaction().begin();
+		TypedQuery<Purchase> query = eManager.createQuery("from Purchase as p where p.emp_id = :cid", Purchase.class);
+        query.setParameter("cid", customerID);
+		List<Purchase> purchases = query.getResultList();
+		eManager.getTransaction().commit();
+
+		return purchases;
+	}
+	
+	@Override
+	public List<Purchase> retrieveForProductID(Long productID) throws SQLException, DAOException{
+		if(productID == null)
+			throw new DAOException("Error, can't retrieve Purchase with null productID");
+		eManager.getTransaction().begin();
+		TypedQuery<Purchase> query = eManager.createQuery("from purchase as p where p.prod_id = :pid", Purchase.class);
+        query.setParameter("pid", productID);
+		List<Purchase> purchases = query.getResultList();
+
+		eManager.getTransaction().commit();
+
+		return purchases;
+	}
+
+	@Override
+	public PurchaseSummary retrievePurchaseSummary(Long customerID) throws SQLException, DAOException{
+		PurchaseSummary summary = new PurchaseSummary();
+		double min = Double.MAX_VALUE;
+		double max = Double.MIN_VALUE;
+		double amount = 0;
+		double sum = 0;
+
+		List<Purchase> purchases = retrieveForCustomerID(customerID);
+
+		for(Purchase purchase : purchases) {
+			amount = purchase.getPurchaseAmount();
+			sum += amount;
+
+			if(amount < min)
+				min = amount;
+			if(amount > max)
+				max = amount;
+		}
+
+		summary.maxPurchase = max;
+		summary.minPurchase = min;
+		summary.avgPurchase = sum / purchases.size();
+		
+		return summary;
+		
+	}
+
+}

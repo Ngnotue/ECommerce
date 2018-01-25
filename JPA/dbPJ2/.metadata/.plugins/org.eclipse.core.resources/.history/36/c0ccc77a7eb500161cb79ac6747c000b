@@ -1,0 +1,152 @@
+package cs4347.hibernateProject.ecomm.services.impl;
+
+import java.sql.SQLException;
+import java.util.List;
+
+import javax.persistence.EntityManager;
+import javax.persistence.TypedQuery;
+
+import cs4347.hibernateProject.ecomm.entity.Purchase;
+import cs4347.hibernateProject.ecomm.services.PurchasePersistenceService;
+import cs4347.hibernateProject.ecomm.services.PurchaseSummary;
+import cs4347.hibernateProject.ecomm.util.DAOException;
+
+public class PurchasePersistenceServiceImpl implements PurchasePersistenceService
+{
+	private EntityManager em;
+	// constructor
+	public PurchasePersistenceServiceImpl(EntityManager em)
+	{
+		this.em = em;
+	}
+	// this method creates a purchase
+	@Override
+	public Purchase create(Purchase purchase) throws SQLException, DAOException
+	{	// check purchase id
+		if(purchase.getId() == null)
+			System.out.println("before persist: purchase.id is null");
+		else
+			System.out.println("before persist: purchase.id = " + purchase.getId());
+		
+		// throw exception if non-null id
+		if(purchase.getId() != null)
+			throw new DAOException("Error: Trying to create Purchase with non-null ID");
+		// else create purchase
+		em.getTransaction().begin();
+		em.persist(purchase);
+		System.out.println("after persist: purchase.id = " + purchase.getId());
+		em.getTransaction().commit();
+		return purchase; // return purchase
+		
+	}
+
+	// this method retrieves a purchase with provided id
+	@Override
+	public Purchase retrieve(Long id) throws SQLException, DAOException
+	{	// throws exception of null id
+		if(id == null)
+			throw new DAOException("Error: Trying to retrieve Purchase with null ID");
+		// else retrieves purchase
+		em.getTransaction().begin();
+		Purchase purchase = em.find(Purchase.class, id);
+		em.getTransaction().commit();
+		
+		return purchase; // return purchase
+	}
+	// this method updates purchase
+	@Override
+	public Purchase update(Purchase purchase) throws SQLException, DAOException
+	{	// throw exception if null id
+		if(purchase.getId() == null)
+			throw new DAOException("Error: Trying to update Purchase with null ID");
+		// else retrieve purchase
+		Purchase result = retrieve(purchase.getId());
+		result = purchase;
+		
+		return purchase; // return purchase
+	}
+	// this method deletes a purchase
+	@Override
+	public void delete(Long id) throws SQLException, DAOException
+	{	// throws exception if null id
+		if(id == null)
+			throw new DAOException("Error: Trying to delete Purchase with null ID");
+		// else delete purchase
+		em.getTransaction().begin();
+		// find
+		Purchase purchase = em.find(Purchase.class, id);
+		// remove
+		em.remove(purchase);
+		em.getTransaction().commit();
+	}
+	// this method retrieves purchases with provided customer id
+	@Override 
+	public List<Purchase> retrieveForCustomerID(Long customerID) throws SQLException, DAOException
+	{	// throw exceptions if null customer id
+		if(customerID == null)
+			throw new DAOException("Error: Trying to retrieve Purchase with null customerID");
+		//else retrieves a list of purchases
+		em.getTransaction().begin();
+	TypedQuery<Purchase> query = em.createQuery("from Purchase as p where p.customer.id = :cid", Purchase.class);
+        query.setParameter("cid", customerID);
+		List<Purchase> purchases = query.getResultList();
+
+		em.getTransaction().commit();
+
+		return purchases; // return purchases list
+	}
+
+
+	/**
+	 * this method retrieve purchases summary made by the given customer.
+	 */
+	@Override
+	public PurchaseSummary retrievePurchaseSummary(Long customerID) throws SQLException, DAOException
+	{
+		PurchaseSummary summary = new PurchaseSummary(); // create a purchaseSummary object
+		double min = Double.MAX_VALUE;
+		double max = Double.MIN_VALUE;
+		double amount = 0;
+		double sum = 0;
+		
+		// get all purchases made by a given customer
+		List<Purchase> purchases = retrieveForCustomerID(customerID);
+		
+		// find min, max, avg
+		for(Purchase purchase : purchases) {
+			amount = purchase.getPurchaseAmount();
+			sum += amount;
+			
+			// compare
+			if(amount < min)
+				min = amount;
+			if(amount > max)
+				max = amount;
+		}
+		
+		// set summary
+		summary.maxPurchase = max;
+		summary.minPurchase = min;
+		summary.avgPurchase = sum / purchases.size();
+		
+		return summary;
+		
+	}
+	// this method retrieves a list of purchase for a given product
+	@Override
+	public List<Purchase> retrieveForProductID(Long productID) throws SQLException, DAOException
+	{	// throws exception if null product id
+		if(productID == null)
+			throw new DAOException("Error: Trying to retrieve Purchase with null productID");
+		
+		em.getTransaction().begin();
+
+		TypedQuery<Purchase> query = em.createQuery("from Purchase as p where p.product.id = :pid", Purchase.class);
+        query.setParameter("pid", productID);
+		List<Purchase> purchases = query.getResultList(); // store results in a list of purchases
+
+		em.getTransaction().commit();
+
+		return purchases; // return list of purchases
+	}
+}
